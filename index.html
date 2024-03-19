@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ray tracer</title>
+</head>
+<body>
+    use WASD to move, arrow keys to rotate, q and e to move up and down
+    <canvas id="canvas"></canvas>
+</body>
+</html>
+<style>
+    body {
+        margin: 0;
+        padding: 0;
+        height: 100vh;
+        width: 100vw;
+        overflow: hidden;
+        background-color: black;
+        color: white;
+        font: 16px monospace;
+    }
+</style>
+<script>
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+    
+    const screen = { w: 100, h: 100, fov: 80}
+    screen.W = canvas.height / screen.h >> 0
+    screen.H = canvas.height / screen.h >> 0
+
+    const camera = {
+        pos: {x: 0, y: 0, z: 0},
+        rot: {x: 0, y: 0, z: 0},
+    }
+    
+    const scene = [ // only spheres
+        {x: 0, y: -1, z: 10, r: 1, hue: 0},
+        {x: 2, y: 0, z: 10, r: 1, hue: 140},
+        {x: -2, y: 1, z: 10, r: 1, hue: 210},
+    ]
+    const lights = [
+        {x: 0, y: 0, z: 0, intensity: 0.75},
+    ]
+
+    let frame = 0;
+
+
+    function rotate(vector, rotation) { // literally stolen 
+        // Rotate around x-axis
+        let y = vector.y * Math.cos(rotation.x) - vector.z * Math.sin(rotation.x);
+        let z = vector.y * Math.sin(rotation.x) + vector.z * Math.cos(rotation.x);
+        vector.y = y;
+        vector.z = z;
+
+        // Rotate around y-axis
+        let x = vector.z * Math.sin(rotation.y) + vector.x * Math.cos(rotation.y);
+        z = vector.z * Math.cos(rotation.y) - vector.x * Math.sin(rotation.y);
+        vector.x = x;
+        vector.z = z;
+
+        // Rotate around z-axis
+        x = vector.x * Math.cos(rotation.z) - vector.y * Math.sin(rotation.z);
+        y = vector.x * Math.sin(rotation.z) + vector.y * Math.cos(rotation.z);
+        vector.x = x;
+        vector.y = y;
+
+        return vector;
+    }
+
+    function generate_rays(){
+        return new Array(screen.w).fill(0).map((_, x) => new Array(screen.h).fill(0).map((_, y) => {
+            let dir = {
+                x: (x - screen.w / 2) / screen.w * Math.tan(screen.fov / 2 * Math.PI / 180),
+                y: (y - screen.h / 2) / screen.h * Math.tan(screen.fov / 2 * Math.PI / 180),
+                z: 1
+            }
+            let mag = Math.sqrt(dir.x * dir.x + dir.y * dir.y + dir.z * dir.z);
+            dir.x /= mag;
+            dir.y /= mag;
+            dir.z /= mag;
+            dir = rotate(dir, camera.rot);
+
+            return {
+                pos: {x: camera.pos.x, y: camera.pos.y, z: camera.pos.z},
+                dir: dir
+            };
+        }));
+    }
+    
+    function ray_sphere_intersection(ray, sphere){
+        const oc = {
+            x: ray.pos.x - sphere.x,
+            y: ray.pos.y - sphere.y,
+            z: ray.pos.z - sphere.z
+        }
+        const a = ray.dir.x * ray.dir.x + ray.dir.y * ray.dir.y + ray.dir.z * ray.dir.z
+        const b = 2 * (oc.x * ray.dir.x + oc.y * ray.dir.y + oc.z * ray.dir.z)
+        const c = oc.x * oc.x + oc.y * oc.y + oc.z * oc.z - sphere.r * sphere.r
+        const discriminant = b * b - 4 * a * c
+        if (discriminant < 0) return null
+        const t = (-b - Math.sqrt(discriminant)) / (2 * a)
+        if (t < 0) return null
+        return {
+            t: t,
+            pos: {
+                x: ray.pos.x + t * ray.dir.x,
+                y: ray.pos.y + t * ray.dir.y,
+                z: ray.pos.z + t * ray.dir.z
+            }
+        }
+    }
+
+    const bounces = 2
+
+    function render(){
+        const rays = generate_rays()
+        rays.forEach((row, x) => {
+            row.forEach((ray, y) => {
+                let closest = null
+                let closest_sphere = null
+                scene.forEach(sphere => {
+                    const intersection = ray_sphere_intersection(ray, sphere)
+                    if (intersection && (!closest || intersection.t < closest.t)){
+                        closest = intersection
+                        closest_sphere = sphere
+                    }
+                })
+                if (closest){
+                    let color = closest_sphere.hue
+                    let normal = {
+                        x: closest.pos.x - closest_sphere.x,
+                        y: closest.pos.y - closest_sphere.y,
+                        z: closest.pos.z - closest_sphere.z
+                    }
+                    let mag = Math.sqrt(normal.x * normal.x + normal.y * normal.y + normal.z * normal.z)
+                    normal.x /= mag
+                    normal.y /= mag
+                    normal.z /= mag
+                    let lightIntensity = lights.reduce((acc, light) => {
+                        let light_dir = {
+                            x: light.x - closest.pos.x,
+                            y: light.y - closest.pos.y,
+                            z: light.z - closest.pos.z
+                        }
+                        let light_mag = Math.sqrt(light_dir.x * light_dir.x + light_dir.y * light_dir.y + light_dir.z * light_dir.z)
+                        light_dir.x /= light_mag
+                        light_dir.y /= light_mag
+                        light_dir.z /= light_mag
+                        let shadow_ray = {
+                            pos: {
+                                x: closest.pos.x + normal.x * 0.01,
+                                y: closest.pos.y + normal.y * 0.01,
+                                z: closest.pos.z + normal.z * 0.01
+                            },
+                            dir: light_dir
+                        }
+                        let shadow = scene.some(sphere => {
+                            const intersection = ray_sphere_intersection(shadow_ray, sphere)
+                            if (intersection && intersection.t < light_mag) return true
+                        })
+                        if (!shadow){
+                            let dot = Math.max(0, normal.x * light_dir.x + normal.y * light_dir.y + normal.z * light_dir.z)
+                            return acc + dot * light.intensity
+                        }
+                        return acc
+                    }, 0)
+
+                    let colorHue = color % 360;
+                    let lightIntensityScaled = Math.min(Math.max(lightIntensity, 0), 1) * 80 + 20;
+                    ctx.fillStyle = `hsl(${colorHue}, 100%, ${lightIntensityScaled}%)`;
+                    
+                    ctx.fillRect(x*screen.W, y*screen.H, screen.W, screen.H);                    
+                } else {
+                    ctx.fillStyle = 'hsl(200, 100%, 50%)'
+                }
+                ctx.fillRect(x*screen.W, y*screen.H, screen.W, screen.H);
+            })
+        })
+    }
+
+    window.addEventListener('keydown', e => {
+        console.log(e.key)
+        if (e.key === 'w'){
+            camera.pos.x += Math.sin(camera.rot.y)
+            camera.pos.z += Math.cos(camera.rot.y)
+        }
+        if (e.key === 's'){
+            camera.pos.x -= Math.sin(camera.rot.y)
+            camera.pos.z -= Math.cos(camera.rot.y)
+        }
+        if (e.key === 'a'){
+            camera.pos.x += Math.sin(camera.rot.y - Math.PI / 2)
+            camera.pos.z += Math.cos(camera.rot.y - Math.PI / 2)
+        }
+        if (e.key === 'd'){
+            camera.pos.x += Math.sin(camera.rot.y + Math.PI / 2)
+            camera.pos.z += Math.cos(camera.rot.y + Math.PI / 2)
+        }
+        if (e.key === 'e') camera.pos.y -= 1
+        if (e.key === 'q') camera.pos.y += 1
+        if (e.key === 'ArrowUp') camera.rot.x += 0.1
+        if (e.key === 'ArrowDown') camera.rot.x -= 0.1
+        if (e.key === 'ArrowRight') camera.rot.y += 0.1
+        if (e.key === 'ArrowLeft') camera.rot.y -= 0.1
+    })
+
+    function loop(){
+        ctx.clearRect(0, 0, canvas.width, canvas.height)
+        lights[0].x = Math.cos(frame / 50) * 10
+        lights[0].z = Math.sin(frame / 50) * 10 + 10
+        lights[0].y = - Math.sin(frame / 200) * 10
+        frame++
+        render()
+        requestAnimationFrame(loop)
+    }
+    
+    loop()
+
+</script>
