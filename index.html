@@ -182,31 +182,47 @@
         })
     }
 
+    let keys = []
+    let mouse = {}
     window.addEventListener('keydown', e => {
-        console.log(e.key)
-        if (e.key === 'w'){
-            camera.pos.x += Math.sin(camera.rot.y)
-            camera.pos.z += Math.cos(camera.rot.y)
-        }
-        if (e.key === 's'){
-            camera.pos.x -= Math.sin(camera.rot.y)
-            camera.pos.z -= Math.cos(camera.rot.y)
-        }
-        if (e.key === 'a'){
-            camera.pos.x += Math.sin(camera.rot.y - Math.PI / 2)
-            camera.pos.z += Math.cos(camera.rot.y - Math.PI / 2)
-        }
-        if (e.key === 'd'){
-            camera.pos.x += Math.sin(camera.rot.y + Math.PI / 2)
-            camera.pos.z += Math.cos(camera.rot.y + Math.PI / 2)
-        }
-        if (e.key === 'e') camera.pos.y -= 1
-        if (e.key === 'q') camera.pos.y += 1
-        if (e.key === 'ArrowUp') camera.rot.x += 0.1
-        if (e.key === 'ArrowDown') camera.rot.x -= 0.1
-        if (e.key === 'ArrowRight') camera.rot.y += 0.1
-        if (e.key === 'ArrowLeft') camera.rot.y -= 0.1
+        keys[e.key] = true
     })
+    window.addEventListener('keyup', e => {
+        keys[e.key] = false
+    })
+    window.addEventListener('mousemove', e => {
+        mouse.x = e.x
+        mouse.y = e.y
+        mouse.dx = e.movementX
+        mouse.dy = e.movementY
+    })
+
+    function move(){
+        if(keys['w']){
+            camera.pos.x += Math.sin(camera.rot.y) * 0.1
+            camera.pos.z += Math.cos(camera.rot.y) * 0.1
+        }
+        if(keys['s']){
+            camera.pos.x -= Math.sin(camera.rot.y) * 0.1
+            camera.pos.z -= Math.cos(camera.rot.y) * 0.1
+        }
+        if(keys['a']){
+            camera.pos.x += Math.sin(camera.rot.y - Math.PI / 2) * 0.1
+            camera.pos.z += Math.cos(camera.rot.y - Math.PI / 2) * 0.1
+        }
+        if(keys['d']){
+            camera.pos.x += Math.sin(camera.rot.y + Math.PI / 2) * 0.1
+            camera.pos.z += Math.cos(camera.rot.y + Math.PI / 2) * 0.1
+        }
+        if(keys['e']){
+            camera.pos.y -= 0.1
+        }
+        if(keys['q']){
+            camera.pos.y += 0.1
+        }
+        camera.rot.x -= mouse.dy ? mouse.dy/80 : 0;
+        camera.rot.y += mouse.dx ? mouse.dx/80 : 0;
+    }
 
     function loop(){
         ctx.clearRect(0, 0, canvas.width, canvas.height)
@@ -214,8 +230,10 @@
         lights[0].z = Math.sin(frame / 50) * 10 + 10
         lights[0].y = - Math.sin(frame / 200) * 10
         frame++
+        move()
         render()
         requestAnimationFrame(loop)
+        mouse = {}
     }
     
     loop()
