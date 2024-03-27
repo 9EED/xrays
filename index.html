@@ -28,9 +28,8 @@
     canvas.width = window.innerWidth;
     canvas.height = window.innerHeight;
     
-    const screen = { w: 100, h: 100, fov: 80}
-    screen.W = canvas.height / screen.h >> 0
-    screen.H = canvas.height / screen.h >> 0
+    const screen = { w: 200, h: 200, fov: 80}
+    screen.S = canvas.height / screen.h >> 0
 
     const camera = {
         pos: {x: 0, y: 0, z: 0},
@@ -173,11 +172,11 @@
                     let lightIntensityScaled = Math.min(Math.max(lightIntensity, 0), 1) * 80 + 20;
                     ctx.fillStyle = `hsl(${colorHue}, 100%, ${lightIntensityScaled}%)`;
                     
-                    ctx.fillRect(x*screen.W, y*screen.H, screen.W, screen.H);                    
+                    ctx.fillRect(x*screen.S, y*screen.S, screen.S, screen.S);                    
                 } else {
                     ctx.fillStyle = 'hsl(200, 100%, 50%)'
                 }
-                ctx.fillRect(x*screen.W, y*screen.H, screen.W, screen.H);
+                ctx.fillRect(x*screen.S, y*screen.S, screen.S, screen.S);
             })
         })
     }
